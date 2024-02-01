@@ -42,9 +42,8 @@ resource "aws_lb_target_group" "redteam_tg" {
     interval            = 60
     path                = "/"
     protocol            = "HTTP"
-    timeout             = 5
-    healthy_threshold   = 5
-    unhealthy_threshold = 2
+    timeout             = 5 
+    unhealthy_threshold = 2 # Can be changed to meet the needs of the application
   }
 }
 
