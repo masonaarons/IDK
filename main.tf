@@ -16,12 +16,12 @@ provider "aws" {
 
 
 # Application Load Balancer (ALB)
-resource "aws_lb" "teamred_lb" {
+resource "aws_lb" "redteam_lb" {
   name               = "red-lb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.my_sg.id] # Replace my_sg with Security group variable
-  subnets            = [aws_subnet.my_subnet1.id, aws_subnet.my_subnet2.id]
+  subnets            = [aws_subnet.my_subnet1.id, aws_subnet.my_subnet2.id] # Replace my_subnet with Subnet variables
 
   enable_deletion_protection = true
 
@@ -31,8 +31,8 @@ resource "aws_lb" "teamred_lb" {
 }
 
 # Target group for the ALB
-resource "aws_lb_target_group" "teamred_tg" {
-  name     = "red-lb-tg"
+resource "aws_lb_target_group" "redteam_tg" {
+  name     = "redteam-lb-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.my_vpc.id # Replace my_vpc with active VPC variable 
@@ -50,12 +50,12 @@ resource "aws_lb_target_group" "teamred_tg" {
 
 # Listener for the ALB
 resource "aws_lb_listener" "front_end" {
-  load_balancer_arn = aws_lb.teamred_lb.arn
+  load_balancer_arn = aws_lb.redteam_lb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.teamred_tg.arn
+    target_group_arn = aws_lb_target_group.redteam_tg.arn
   }
 }
