@@ -1,60 +1,86 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 provider "aws" {
-  region = "us-east-1"
-  default_tags {
-    tags = var.default-tags
-  }
+  region                   = "us-east-1"
+}
+
+resource "aws_iam_role" "lambda_role" {
+ name   = "terraform_aws_lambda_role"
+ assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+# IAM policy for logging from a lambda
+
+resource "aws_iam_policy" "iam_policy_for_lambda" {
+
+  name         = "aws_iam_policy_for_terraform_aws_lambda_role"
+  path         = "/"
+  description  = "AWS IAM Policy for managing aws lambda role"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*",
+      "Effect": "Allow"
+    }
+  ]
+}
+EOF
+}
+
+# Policy Attachment on the role.
+
+resource "aws_iam_role_policy_attachment" "attach_iam_policy_to_iam_role" {
+  role        = aws_iam_role.lambda_role.name
+  policy_arn  = aws_iam_policy.iam_policy_for_lambda.arn
+}
+
+# Generates an archive from content, a file, or a directory of files.
+
+data "archive_file" "zip_the_python_code" {
+ type        = "zip"
+ source_dir  = "${path.module}/python/"
+ output_path = "${path.module}/python/hello-python.zip"
+}
+
+# Create a lambda function
+# In terraform ${path.module} is the current directory.
+resource "aws_lambda_function" "terraform_lambda_func" {
+ filename                       = "${path.module}/python/hello-python.zip"
+ function_name                  = "RedTeam-Lambda-Function"
+ role                           = aws_iam_role.lambda_role.arn
+ handler                        = "hello-python.lambda_handler"
+ runtime                        = "python3.8"
+ depends_on                     = [aws_iam_role_policy_attachment.attach_iam_policy_to_iam_role]
 }
 
 
-# Application Load Balancer (ALB)
-resource "aws_lb" "redteam_lb" {
-  name               = "red-lb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.my_sg.id] # Replace my_sg with Security group variable
-  subnets            = [aws_subnet.my_subnet1.id, aws_subnet.my_subnet2.id] # Replace my_subnet with Subnet variables
-
-  enable_deletion_protection = true
-
-  tags = {
-    Name = "red-lb"
-  }
+output "teraform_aws_role_output" {
+ value = aws_iam_role.lambda_role.name
 }
 
-# Target group for the ALB
-resource "aws_lb_target_group" "redteam_tg" {
-  name     = "redteam-lb-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.my_vpc.id # Replace my_vpc with active VPC variable 
-
-  health_check {
-    enabled             = true
-    interval            = 60
-    path                = "/"
-    protocol            = "HTTP"
-    timeout             = 5 
-    unhealthy_threshold = 2 # Can be changed to meet the needs of the application
-  }
+output "teraform_aws_role_arn_output" {
+ value = aws_iam_role.lambda_role.arn
 }
 
-# Listener for the ALB
-resource "aws_lb_listener" "front_end" {
-  load_balancer_arn = aws_lb.redteam_lb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.redteam_tg.arn
-  }
+output "teraform_logging_arn_output" {
+ value = aws_iam_policy.iam_policy_for_lambda.arn
 }
